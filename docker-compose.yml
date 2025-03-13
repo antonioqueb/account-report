@@ -5,7 +5,7 @@ services:
     build: .
     container_name: account-report-api
     ports:
-      - "6000:5000"
+      - "2000:5000"
     volumes:
       - ./app:/app
     environment:
