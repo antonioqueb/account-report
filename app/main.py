@@ -12,6 +12,10 @@ ODOO_DB = os.getenv('ODOO_DB')
 ODOO_USER = os.getenv('ODOO_USER')
 ODOO_PASSWORD = os.getenv('ODOO_PASSWORD')
 
+# Validar protocolo explícito en la URL
+if not ODOO_URL.startswith(('http://', 'https://')):
+    raise ValueError('La variable ODOO_URL debe iniciar explícitamente con http:// o https://')
+
 common = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/common')
 uid = common.authenticate(ODOO_DB, ODOO_USER, ODOO_PASSWORD, {})
 models = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/object')
