@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from dotenv import load_dotenv
 import os
 import xmlrpc.client
@@ -18,18 +18,29 @@ if not ODOO_URL.startswith(('http://', 'https://')):
 common = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/common')
 uid = common.authenticate(ODOO_DB, ODOO_USER, ODOO_PASSWORD, {})
 models = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/object')
+# TODO Crear excepción para la conexión errónea
 
+def obtener_datos_compras(mes=None, anio=None, company_id=None):
 
-def obtener_datos_compras():
+    domain = []
+    if mes and anio:
+        fecha_inicio = f"{anio}-{mes.zfill(2)}-01"
+        fecha_fin = f"{anio}-{mes.zfill(2)}-31"
+        domain.append(('date_order', '>=', fecha_inicio))
+        domain.append(('date_order', '<=', fecha_fin))
+
+    if company_id:
+        domain.append(('company_id', '=', int(company_id)))
+
     compras = models.execute_kw(
         ODOO_DB, uid, ODOO_PASSWORD,
-        'purchase.order', 'search_read', [],
-        {'fields': ['id', 'name', 'partner_id', 'currency_id', 'amount_untaxed', 'amount_tax']}
+        'purchase.order', 'search_read',
+        [domain],
+        {'fields': ['company_id', 'id', 'name', 'partner_id', 'currency_id', 'amount_untaxed', 'amount_tax']}
     )
 
     resultado = []
     for compra in compras:
-        orden_id = compra['id']
         orden_name = compra['name']
 
         facturas = models.execute_kw(
@@ -43,20 +54,17 @@ def obtener_datos_compras():
             {'fields': ['amount_total', 'amount_residual']}
         )
 
-        num_facturas = len(facturas)
-        monto_facturado = sum(factura['amount_total'] for factura in facturas)
-        saldo_real = sum(factura['amount_residual'] for factura in facturas)
-
         resultado.append({
-            'orden': orden_id,
+            'company_id': compra['company_id'],
+            'orden': compra['id'],
             'proveedor': compra['partner_id'][1],
             'moneda': compra['currency_id'][1],
             'subtotal': compra['amount_untaxed'],
             'impuestos': compra['amount_tax'],
             'monto_total_solicitado': compra['amount_untaxed'] + compra['amount_tax'],
-            'numero_de_facturas': num_facturas,
-            'monto_facturado': monto_facturado,
-            'saldo': saldo_real
+            'numero_de_facturas': len(facturas),
+            'monto_facturado': sum(f['amount_total'] for f in facturas),
+            'saldo': sum(f['amount_residual'] for f in facturas)
         })
 
     return resultado
@@ -64,7 +72,11 @@ def obtener_datos_compras():
 
 @app.route('/api/compras', methods=['GET'])
 def api_compras():
-    data = obtener_datos_compras()
+    mes = request.args.get('mes')
+    anio = request.args.get('anio')
+    company_id = request.args.get('company_id')
+
+    data = obtener_datos_compras(mes, anio, company_id)
     return jsonify(data)
 
 
