@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  account-report:
+    build: .
+    container_name: account-report-api
+    ports:
+      - "6000:5000"
+    volumes:
+      - ./app:/app
+    environment:
+      - FLASK_ENV=development
