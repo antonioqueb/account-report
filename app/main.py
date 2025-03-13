@@ -12,7 +12,6 @@ ODOO_DB = os.getenv('ODOO_DB')
 ODOO_USER = os.getenv('ODOO_USER')
 ODOO_PASSWORD = os.getenv('ODOO_PASSWORD')
 
-# Validar protocolo explícito en la URL
 if not ODOO_URL.startswith(('http://', 'https://')):
     raise ValueError('La variable ODOO_URL debe iniciar explícitamente con http:// o https://')
 
@@ -31,19 +30,22 @@ def obtener_datos_compras():
     resultado = []
     for compra in compras:
         orden_id = compra['id']
-        orden_name = compra['name']  # Esto es clave, usar el nombre exacto.
+        orden_name = compra['name']
 
         facturas = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,
             'account.move', 'search_read',
-            [[['invoice_origin', '=', orden_name], ['move_type', '=', 'in_invoice'], ['state', '=', 'posted']]],
-            {'fields': ['amount_total']}
+            [[
+                ['invoice_origin', '=', orden_name],
+                ['move_type', '=', 'in_invoice'],
+                ['state', '=', 'posted']
+            ]],
+            {'fields': ['amount_total', 'amount_residual']}
         )
 
         num_facturas = len(facturas)
         monto_facturado = sum(factura['amount_total'] for factura in facturas)
-        monto_solicitado = compra['amount_untaxed'] + compra['amount_tax']
-        saldo = monto_solicitado - monto_facturado
+        saldo_real = sum(factura['amount_residual'] for factura in facturas)
 
         resultado.append({
             'orden': orden_id,
@@ -51,10 +53,10 @@ def obtener_datos_compras():
             'moneda': compra['currency_id'][1],
             'subtotal': compra['amount_untaxed'],
             'impuestos': compra['amount_tax'],
-            'monto_total_solicitado': monto_solicitado,
+            'monto_total_solicitado': compra['amount_untaxed'] + compra['amount_tax'],
             'numero_de_facturas': num_facturas,
             'monto_facturado': monto_facturado,
-            'saldo': saldo
+            'saldo': saldo_real
         })
 
     return resultado
