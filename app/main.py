@@ -25,17 +25,18 @@ def obtener_datos_compras():
     compras = models.execute_kw(
         ODOO_DB, uid, ODOO_PASSWORD,
         'purchase.order', 'search_read', [],
-        {'fields': ['id', 'partner_id', 'currency_id', 'amount_untaxed', 'amount_tax']}
+        {'fields': ['id', 'name', 'partner_id', 'currency_id', 'amount_untaxed', 'amount_tax']}
     )
 
     resultado = []
     for compra in compras:
         orden_id = compra['id']
+        orden_name = compra['name']  # Esto es clave, usar el nombre exacto.
 
         facturas = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,
             'account.move', 'search_read',
-            [[['invoice_origin', 'ilike', f'PO{orden_id}'], ['move_type', '=', 'in_invoice'], ['state', '=', 'posted']]],
+            [[['invoice_origin', '=', orden_name], ['move_type', '=', 'in_invoice'], ['state', '=', 'posted']]],
             {'fields': ['amount_total']}
         )
 
